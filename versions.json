@@ -1,0 +1,11 @@
+{
+    "clients": [
+        {
+            "version": "0.1.0",
+            "type": "Pre Alpha",
+            "download_url": "https://testimgaginatioyes.netlify.app/files/imaginatio.zip",
+            "release_date": "2026-04-13",
+            "changelog": "Pre Alpha Release of Imaginatio!"
+        }
+    ]
+}
