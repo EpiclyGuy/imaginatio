@@ -3,9 +3,9 @@
         {
             "version": "1",
             "type": "Pre Alpha",
-            "download_url": "https://github.com/EpiclyGuy/imaginatio/releases/tag/imaginatio/Polymade.zip",
-            "release_date": "2026-08-08",
-            "changelog": "Pre Alpha Release of Imaginatio!"
+            "download_url": "https://github.com/EpiclyGuy/imaginatio/releases/tag/imaginatio/sha256:6446b2485bf751c605b966ae9b881bd873c20e0f2d3836a809feda65ee65819c",
+            "release_date": "2026-08-07",
+            "changelog": "Pre Alpha Release of Polymade!"
         }
     ]
 }
