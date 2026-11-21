@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polymade News Editor (local tool)</title>
+<link rel="icon" type="image/x-icon" href="assets/ImaginatioIcon.png">
+<style>
+@font-face { font-family: COMIC; src: url(assets/COMIC.TTF); }
+* { box-sizing: border-box; text-decoration: none; }
+body {
+    margin: 0;
+    background-color: #4F9EDF;
+    font-family: COMIC, 'Comic Sans MS', sans-serif;
+    color: rgb(19, 29, 85);
+    display: flex;
+    justify-content: center;
+    padding: 16px 0;
+}
+.wrap { width: min(760px, 96%); }
+.card { background: rgb(184, 237, 255); border: 3px solid #fff; padding: 18px 22px; margin-bottom: 16px; }
+h1 { color: #fff; text-align: center; font-size: 26px; }
+h2 { color: #4F9EDF; font-size: 19px; margin: 6px 0 10px; }
+label { display: block; font-size: 14px; margin: 10px 0 3px; }
+input[type=text], textarea {
+    width: 100%; font-family: COMIC, 'Comic Sans MS', sans-serif;
+    font-size: 14px; padding: 8px 10px;
+    border: 2px solid rgb(19, 29, 85); background: #fff; color: rgb(19, 29, 85);
+}
+textarea { min-height: 150px; resize: vertical; }
+.count { font-size: 12px; color: rgb(98, 156, 201); text-align: right; margin-top: 2px; }
+.count.long { color: #e60c0c; }
+.row { display: flex; gap: 12px; }
+.row > div { flex: 1; }
+select {
+    width: 100%; font-family: COMIC, 'Comic Sans MS', sans-serif;
+    font-size: 14px; padding: 8px 10px;
+    border: 2px solid rgb(19, 29, 85); background: #fff; color: rgb(19, 29, 85);
+}
+.btn {
+    font-family: COMIC, 'Comic Sans MS', sans-serif;
+    font-size: 15px; font-weight: bold;
+    padding: 9px 20px; cursor: pointer;
+    border: 2px solid rgb(19, 29, 85);
+    background: #4F9EDF; color: #fff;
+    transition: transform .13s ease;
+    display: inline-block;
+}
+.btn.alt { background: #fff; color: rgb(19, 29, 85); }
+.btn:hover { transform: translateY(3px); }
+.btn:active { transform: translateY(0) scale(.95); }
+.note { font-size: 13px; color: rgb(98, 156, 201); line-height: 1.5; }
+pre {
+    background: #103055; color: #B5E3FF;
+    font-family: Consolas, monospace; font-size: 12.5px;
+    padding: 14px; overflow: auto; max-height: 340px;
+    white-space: pre-wrap;
+}
+/* launcher-style card preview (native DOM, like the launcher builds it) */
+#pv { display: flex; gap: 12px; background: #4F9EDF; border: 2px solid #fff; padding: 10px; width: 340px; max-width: 100%; }
+#pv img { width: 118px; height: 104px; object-fit: cover; background: #fff; border: 3px solid #fff; flex: 0 0 auto; }
+#pv .pt { font-size: 16px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pv .ps { margin-top: 6px; font-size: 12.5px; line-height: 1.3; color: #EAF2FC;
+          display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+#pvwrap { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+#clicknote { font-size: 12.5px; color: #2759cd; max-width: 330px; line-height: 1.4; }
+#toast {
+    display: none; position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: #103055; color: #fff; padding: 10px 22px; font-size: 14px; border-radius: 20px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Polymade News Editor</h1>
+
+    <div class="card">
+        <h2>1. Write the post</h2>
+        <label>Title</label>
+        <input type="text" id="ftitle" placeholder="Alpha 2 Release!">
+        <div class="row">
+            <div>
+                <label>Date</label>
+                <input type="text" id="fdate" placeholder="21/11/2026">
+            </div>
+            <div>
+                <label>Image</label>
+                <select id="fimg">
+                    <option value="assets/Blog1.png">assets/Blog1.png</option>
+                    <option value="assets/Blog2.png">assets/Blog2.png</option>
+                    <option value="custom">custom path / URL...</option>
+                </select>
+            </div>
+        </div>
+        <input type="text" id="fimgcustom" placeholder="type an image path or full URL, e.g. https://.../pic.png" style="display:none; margin-top:6px;">
+        <label>Short summary (shown on the launcher card)</label>
+        <textarea id="fsummary" style="min-height:60px;" placeholder="One or two sentences about the update"></textarea>
+        <div class="count" id="sumcount">0 characters</div>
+        <label>Body (blank line = new paragraph; kept in the post data)</label>
+        <textarea id="fbody" placeholder="Write the full post here.&#10;&#10;Blank lines split it into paragraphs."></textarea>
+        <label>Link (optional) &mdash; the card opens this URL in the real browser when clicked</label>
+        <input type="text" id="furl" placeholder="https://epiclyguy.github.io/imaginatio/news.html (leave empty = card is not clickable)">
+        <label style="margin-top:14px;">Card preview (as the launcher shows it)</label>
+        <div id="pvwrap">
+            <div id="pv"></div>
+            <div id="clicknote">Cards without a link are display-only.<br>Cards with a link open it in the user's browser &mdash; nothing is embedded in the launcher.</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>2. Merge with the old news.json (optional but handy)</h2>
+        <label>Paste your CURRENT news.json here (from the repo) to add the new post on top of it</label>
+        <textarea id="fexisting" style="min-height:90px;" placeholder='{"posts": [ ...your existing posts... ]}'></textarea>
+    </div>
+
+    <div class="card">
+        <h2>3. Push the result as news2.html</h2>
+        <div class="note" style="margin-bottom:10px;">The launcher reads <b>news2.html</b> from the site root &mdash; the file's <i>content</i> is just this JSON (same shape as the old news.json). Copy the output, save/push it as <b>news2.html</b> next to versions.json, and the launcher picks it up instantly. No embeds, no webviews &mdash; the launcher only parses the image + text fields and builds the cards itself.</div>
+        <button class="btn" id="gen">Generate JSON</button>
+        <button class="btn alt" id="copy">Copy</button>
+        <button class="btn alt" id="dljson">Download news2.html</button>
+        <pre id="out">Press "Generate JSON"...</pre>
+    </div>
+</div>
+<div id="toast">Copied!</div>
+
+<script>
+function cap(text, n) {
+    text = (text || '').trim().replace(/\s+/g, ' ');
+    return text.length > n ? text.slice(0, n).trimEnd() + '\u2026' : text;
+}
+function todayStr() {
+    const d = new Date();
+    return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear();
+}
+document.getElementById('fdate').value = todayStr();
+
+function slug(t) {
+    return (t || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'new-post';
+}
+function getImage() {
+    const sel = document.getElementById('fimg').value;
+    return sel === 'custom' ? (document.getElementById('fimgcustom').value.trim() || 'assets/Blog1.png') : sel;
+}
+document.getElementById('fimg').onchange = function () {
+    document.getElementById('fimgcustom').style.display = this.value === 'custom' ? 'block' : 'none';
+};
+document.getElementById('fsummary').oninput = function () {
+    const c = document.getElementById('sumcount');
+    c.textContent = this.value.length + ' characters' + (this.value.length > 110 ? ' (the launcher card caps at ~110)' : '');
+    c.className = 'count' + (this.value.length > 110 ? ' long' : '');
+};
+
+function buildPost() {
+    const title = document.getElementById('ftitle').value.trim() || 'Untitled post';
+    const p = {
+        id: slug(title),
+        title: title,
+        date: document.getElementById('fdate').value.trim() || todayStr(),
+        image: getImage(),
+        summary: document.getElementById('fsummary').value.trim(),
+        body: document.getElementById('fbody').value.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean)
+    };
+    const url = document.getElementById('furl').value.trim();
+    if (url) p.url = url;
+    return p;
+}
+
+/* native card preview — same structure/caps the launcher uses */
+function renderPv() {
+    const post = buildPost();
+    const pv = document.getElementById('pv');
+    pv.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = post.image || 'assets/Blog1.png';
+    img.onerror = () => { img.src = 'assets/Blog1.png'; };
+    const body = document.createElement('div');
+    body.style.flex = '1'; body.style.minWidth = '0';
+    const t = document.createElement('div');
+    t.className = 'pt'; t.textContent = cap(post.title, 26);
+    const s = document.createElement('div');
+    s.className = 'ps'; s.textContent = cap(post.summary, 110);
+    body.appendChild(t); body.appendChild(s);
+    pv.appendChild(img); pv.appendChild(body);
+}
+['ftitle', 'fdate', 'fimg', 'fimgcustom', 'fsummary', 'fbody', 'furl'].forEach(id => {
+    document.getElementById(id).addEventListener('input', renderPv);
+    document.getElementById(id).addEventListener('change', renderPv);
+});
+renderPv();
+
+function generate() {
+    const post = buildPost();
+    const existing = document.getElementById('fexisting').value.trim();
+    let out;
+    if (existing) {
+        try {
+            const data = JSON.parse(existing);
+            const posts = Array.isArray(data) ? data : (data.posts || []);
+            out = { posts: [post].concat(posts.filter(p => p.id !== post.id)) };
+        } catch (e) {
+            document.getElementById('out').textContent = 'The pasted news.json is not valid JSON: ' + e.message + '\n\nFix it or empty the box to output just the new post.';
+            return null;
+        }
+    } else {
+        out = { posts: [post] };
+    }
+    return JSON.stringify(out, null, 2);
+}
+
+let lastOut = null;
+document.getElementById('gen').onclick = () => {
+    const o = generate();
+    if (o) { lastOut = o; document.getElementById('out').textContent = o; }
+};
+document.getElementById('copy').onclick = () => {
+    if (!lastOut) document.getElementById('gen').click();
+    if (!lastOut) return;
+    navigator.clipboard.writeText(lastOut).then(() => {
+        const t = document.getElementById('toast');
+        t.style.display = 'block';
+        setTimeout(() => t.style.display = 'none', 1400);
+    });
+};
+document.getElementById('dljson').onclick = () => {
+    if (!lastOut) document.getElementById('gen').click();
+    if (!lastOut) return;
+    const blob = new Blob([lastOut], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'news2.html';
+    a.click();
+};
+</script>
+</body>
+</html>
