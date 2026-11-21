@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Polymade News Editor (local tool)</title>
-<link rel="icon" type="image/x-icon" href="assets/ImaginatioIcon.png">
 <style>
-@font-face { font-family: COMIC; src: url(assets/COMIC.TTF); }
+/* Works whether this page sits at the site root or in a subfolder (e.g. adminstuff/):
+   the browser tries the font sources in order, then falls back to Comic Sans MS. */
+@font-face { font-family: COMIC; src: url(assets/COMIC.TTF), url(../assets/COMIC.TTF); }
 * { box-sizing: border-box; text-decoration: none; }
 body {
     margin: 0;
@@ -125,6 +126,43 @@ pre {
 <div id="toast">Copied!</div>
 
 <script>
+/* ---- asset resolution that can never loop ----
+   Image paths in post data (e.g. "assets/Blog1.png") are relative to the SITE
+   ROOT: the launcher resolves them against SiteBase, so the JSON output keeps
+   using them as-is. This editor page however may sit at the root or in a
+   subfolder (adminstuff/), so the preview tries the path relative to this
+   page's folder first, then one level up. The final fallback is a data: URI,
+   which cannot 404 — that is what stops the refresh loop. */
+const PV_FALLBACK = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="118" height="104">' +
+    '<rect width="118" height="104" fill="#ffffff"/>' +
+    '<text x="59" y="58" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#9db9d1">no image</text></svg>');
+function srcCandidates(p) {
+    p = (p || '').trim() || 'assets/Blog1.png';
+    if (/^(https?:|data:)/i.test(p)) return [p];
+    if (p.startsWith('/')) return [p];
+    const out = [p];
+    if (!p.startsWith('../')) out.push('../' + p);
+    return out;
+}
+(function () {  /* favicon: preload candidates with Image() — <link> onerror is unreliable */
+    const cands = srcCandidates('assets/ImaginatioIcon.png');
+    let i = 0;
+    function tryNext() {
+        if (i >= cands.length) return;           // give up quietly; favicon is cosmetic
+        const probe = new Image();
+        probe.onload = function () {
+            const link = document.createElement('link');
+            link.rel = 'icon'; link.type = 'image/x-icon';
+            link.href = cands[i];
+            document.head.appendChild(link);
+        };
+        probe.onerror = function () { i++; tryNext(); };
+        probe.src = cands[i];
+    }
+    tryNext();
+})();
+
 function cap(text, n) {
     text = (text || '').trim().replace(/\s+/g, ' ');
     return text.length > n ? text.slice(0, n).trimEnd() + '\u2026' : text;
@@ -172,8 +210,14 @@ function renderPv() {
     const pv = document.getElementById('pv');
     pv.innerHTML = '';
     const img = document.createElement('img');
-    img.src = post.image || 'assets/Blog1.png';
-    img.onerror = () => { img.src = 'assets/Blog1.png'; };
+    const cands = srcCandidates(post.image);
+    let candIdx = 0;
+    img.onerror = function () {
+        candIdx++;
+        if (candIdx < cands.length) { img.src = cands[candIdx]; }
+        else { img.onerror = null; img.src = PV_FALLBACK; }  /* terminal — no retry loop */
+    };
+    img.src = cands[0];
     const body = document.createElement('div');
     body.style.flex = '1'; body.style.minWidth = '0';
     const t = document.createElement('div');
@@ -233,4 +277,4 @@ document.getElementById('dljson').onclick = () => {
 };
 </script>
 </body>
-</html>
+</html> 
