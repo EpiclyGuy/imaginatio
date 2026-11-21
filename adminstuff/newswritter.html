@@ -121,6 +121,7 @@ pre {
         <button class="btn" id="gen">Generate JSON</button>
         <button class="btn alt" id="copy">Copy</button>
         <button class="btn alt" id="dljson">Download news2.html</button>
+        <div class="note" id="mergenote" style="margin-top:10px;"></div>
         <pre id="out">Press "Generate JSON"...</pre>
     </div>
 </div>
@@ -158,23 +159,30 @@ function srcCandidates(p) {
 })();
 
 const MERGE_CANDIDATES = ['news2.html', '../news2.html'];
+let mergeLoaded = false;
 async function loadExisting() {
     const status = document.getElementById('mergestatus');
+    const opts = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? { cache: 'no-store', signal: AbortSignal.timeout(8000) } : { cache: 'no-store' };
+    let ok = false;
     for (const u of MERGE_CANDIDATES) {
         try {
-            const res = await fetch(u + '?t=' + Date.now(), { cache: 'no-store' });
+            const res = await fetch(u + '?t=' + Date.now(), opts);
             if (!res.ok) continue;
             const data = JSON.parse(await res.text());
             const posts = Array.isArray(data) ? data : (data.posts || []);
             document.getElementById('fexisting').value = JSON.stringify({ posts: posts }, null, 2);
             status.textContent = posts.length + ' post' + (posts.length === 1 ? '' : 's') + ' loaded';
-            return true;
+            ok = true;
+            break;
         } catch (e) {}
     }
-    status.textContent = 'could not fetch — paste your current posts below';
-    return false;
+    if (!ok) status.textContent = 'could not fetch — paste your current posts below';
+    mergeLoaded = true;
+    ['gen', 'copy', 'dljson'].forEach(id => { document.getElementById(id).disabled = false; });
+    return ok;
 }
 document.getElementById('reload').onclick = () => loadExisting();
+['gen', 'copy', 'dljson'].forEach(id => { document.getElementById(id).disabled = true; });
 loadExisting();
 
 function cap(text, n) {
@@ -249,18 +257,30 @@ renderPv();
 function generate() {
     const post = buildPost();
     const existing = document.getElementById('fexisting').value.trim();
+    const note = document.getElementById('mergenote');
     let out;
     if (existing) {
         try {
             const data = JSON.parse(existing);
             const posts = Array.isArray(data) ? data : (data.posts || []);
+            const dup = posts.filter(p => p.id === post.id)[0];
             out = { posts: [post].concat(posts.filter(p => p.id !== post.id)) };
+            if (dup) {
+                note.textContent = '⚠ "' + dup.title + '" had the same id (' + post.id + ') and was REPLACED — it is not in the output. Want to keep both? Change the title of your new post.';
+                note.style.color = '#e60c0c';
+            } else {
+                note.textContent = 'Merged: your new post on top + ' + posts.length + ' existing post' + (posts.length === 1 ? '' : 's') + ' kept.';
+                note.style.color = '';
+            }
         } catch (e) {
-            document.getElementById('out').textContent = 'The pasted news.json is not valid JSON: ' + e.message + '\n\nFix it or empty the box to output just the new post.';
+            note.textContent = '';
+            document.getElementById('out').textContent = 'The posts in section 2 are not valid JSON: ' + e.message + '\n\nFix them, press "Reload from site", or empty the box to output just the new post.';
             return null;
         }
     } else {
         out = { posts: [post] };
+        note.textContent = '⚠ No posts in the section-2 box — the output has ONLY your new post. Press "Reload from site" to merge with the posts on the site.';
+        note.style.color = '#e60c0c';
     }
     return JSON.stringify(out, null, 2);
 }
